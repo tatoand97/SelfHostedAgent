@@ -1,34 +1,30 @@
-# SelfHostedGovernanceAgent
+# SelfHostedAgent
 
-PoC funcional de un agente self-hosted en ASP.NET Core Minimal API sobre .NET 10. La API expone `GovernanceAgent` para responder preguntas de gobierno de despliegue usando Azure AI Foundry / Azure OpenAI y para evaluar solicitudes de despliegue con reglas determinísticas.
+PoC funcional de un self-hosted agent en ASP.NET Core Minimal API sobre .NET 10. El agente atiende preguntas simples de soporte interno para Contoso Retail y consume Azure AI Foundry / Azure OpenAI con `DefaultAzureCredential`, sin API keys.
 
 ## Alcance
 
-Este repositorio implementa solo el código del self-hosted agent.
+Este repositorio contiene solo el codigo del self-hosted agent, sus pruebas y documentacion basica.
 
-DevOps se encarga de AKS, Azure APIM, pipeline, SAST, ACR, ingress, Workload Identity y despliegue.
+DevOps se encarga de infraestructura, Dockerfile o imagen, ACR, AKS, Azure APIM, Workload Identity, pipeline, despliegue y SAST. No se incluyen Dockerfile, manifiestos AKS, APIM policies, Bicep, Terraform, GitHub Actions ni Azure Pipelines.
 
-No se incluyen Bicep, Terraform, manifiestos completos de AKS, policies de APIM ni pipeline.
-
-## Arquitectura
+## Arquitectura objetivo
 
 ```text
-Cliente -> Azure APIM -> AKS -> SelfHostedGovernanceAgent.Api -> Azure AI Foundry / Azure OpenAI
+Cliente -> Azure APIM -> AKS -> SelfHostedAgent.Api -> Azure AI Foundry / Azure OpenAI
 ```
 
-## Ejecutar localmente
+## Comandos locales
 
 ```powershell
 dotnet restore
 dotnet build
 dotnet test
 az login
-$env:AZURE_OPENAI_ENDPOINT = "https://<resource-name>.openai.azure.com/"
-$env:AZURE_OPENAI_DEPLOYMENT_NAME = "<deployment-name>"
-dotnet run --project src/SelfHostedGovernanceAgent.Api
+dotnet run --project src/SelfHostedAgent.Api
 ```
 
-Swagger queda disponible en `/swagger` cuando la API está en ejecución.
+Swagger queda disponible en `/swagger` cuando la API esta en ejecucion.
 
 ## Variables de entorno
 
@@ -38,58 +34,57 @@ AZURE_OPENAI_DEPLOYMENT_NAME
 AZURE_CLIENT_ID opcional para Workload Identity en AKS
 ```
 
-`appsettings.json` contiene la sección `AzureOpenAI`, pero no guarda secretos. Las variables de entorno tienen prioridad sobre la configuración del archivo.
+`appsettings.json` contiene la seccion `AzureOpenAI`, pero no guarda secretos. Las variables de entorno tienen prioridad sobre la configuracion del archivo.
 
-## Chat
+## Ejemplos curl
+
+Health:
 
 ```bash
-curl -X POST http://localhost:5000/api/agents/governance/chat \
-  -H "Content-Type: application/json" \
-  -d "{\"message\":\"Que controles necesito para desplegar un agente en prod sobre AKS?\"}"
+curl http://localhost:5000/health
 ```
 
-## Evaluate
+Metadata:
 
 ```bash
-curl -X POST http://localhost:5000/api/agents/governance/evaluate \
+curl http://localhost:5000/api/agent/metadata
+```
+
+Foundry status:
+
+```bash
+curl http://localhost:5000/api/agent/foundry/status
+```
+
+Invoke:
+
+```bash
+curl -X POST http://localhost:5000/api/agent/invoke \
   -H "Content-Type: application/json" \
-  -d "{
-    \"agentName\":\"GovernanceAgent\",
-    \"language\":\"dotnet\",
-    \"targetEnvironment\":\"prod\",
-    \"usesInternalData\":true,
-    \"usesSensitiveData\":false,
-    \"usesExternalApis\":true,
-    \"hasUnitTests\":true,
-    \"hasSast\":true,
-    \"hasDependencyScan\":true,
-    \"hasSecretScan\":true,
-    \"hasAiEvaluation\":true,
-    \"usesManagedIdentity\":true
-  }"
+  -d "{\"question\":\"Cual es la politica de devoluciones?\",\"correlationId\":\"demo-001\"}"
 ```
 
 ## Endpoints
 
 - `GET /health`
-- `GET /api/agents/governance/version`
-- `POST /api/agents/governance/chat`
-- `POST /api/agents/governance/evaluate`
+- `GET /api/agent/metadata`
+- `GET /api/agent/foundry/status`
+- `POST /api/agent/invoke`
 
 ## Autenticacion
 
-El código usa `DefaultAzureCredential` desde `Azure.Identity`.
+El codigo usa `DefaultAzureCredential` desde `Azure.Identity`.
 
 Localmente funciona con `az login`. En AKS funciona con Workload Identity cuando DevOps configure la identidad y, si aplica, `AZURE_CLIENT_ID`.
 
-No se usan API keys y no se leen secretos desde configuración.
+No se usan API keys, client secrets ni secretos en archivos de configuracion.
 
 ## Nota para DevOps
 
-- Importar Swagger/OpenAPI en Azure APIM.
-- Configurar Workload Identity en AKS.
-- Asignar RBAC a la identidad administrada.
-- Configurar `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_DEPLOYMENT_NAME` y opcionalmente `AZURE_CLIENT_ID` en el workload.
-- Publicar la imagen en ACR.
-
-Rol RBAC conceptual: `Cognitive Services OpenAI User` sobre el recurso Azure OpenAI / Foundry correspondiente.
+- El proyecto no incluye Dockerfile.
+- El proyecto no incluye pipeline.
+- El proyecto no incluye manifiestos AKS.
+- El proyecto no incluye APIM policies.
+- El pipeline debe agregar esos artefactos.
+- El workload debe configurar Workload Identity.
+- La identidad debe tener permisos para consumir Azure OpenAI / Foundry, por ejemplo `Cognitive Services OpenAI User` sobre el recurso correspondiente.

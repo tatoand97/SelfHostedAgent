@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("SelfHostedGovernanceAgent.Tests")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+063631531256358c9cbca27511c152606e827f1e")]
 [assembly: System.Reflection.AssemblyProductAttribute("SelfHostedGovernanceAgent.Tests")]
 [assembly: System.Reflection.AssemblyTitleAttribute("SelfHostedGovernanceAgent.Tests")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
