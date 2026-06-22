@@ -10,12 +10,12 @@ public sealed class AgentService : IAgentService
 
     private readonly IBusinessContextService _businessContextService;
     private readonly IFoundryChatService _foundryChatService;
-    private readonly AzureOpenAIOptions _options;
+    private readonly FoundryOptions _options;
 
     public AgentService(
         IBusinessContextService businessContextService,
         IFoundryChatService foundryChatService,
-        Microsoft.Extensions.Options.IOptions<AzureOpenAIOptions> options)
+        Microsoft.Extensions.Options.IOptions<FoundryOptions> options)
     {
         _businessContextService = businessContextService;
         _foundryChatService = foundryChatService;
@@ -35,7 +35,7 @@ public sealed class AgentService : IAgentService
         return new AgentResponse(
             answer,
             AgentName,
-            AzureOpenAIOptions.ResolveDeploymentName(_options),
+            FoundryOptions.ResolveModelDeploymentName(_options),
             request.CorrelationId,
             UsedBusinessContext: true,
             AuthenticationMode);

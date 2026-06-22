@@ -61,11 +61,21 @@ public sealed class AgentServiceTests
         Assert.Equal("Hay disponibilidad?", chat.LastQuestion);
     }
 
+    [Fact]
+    public async Task InvokeAsync_ReturnsConfiguredModelDeploymentName()
+    {
+        var service = CreateService();
+
+        var response = await service.InvokeAsync(new AgentRequest("Cual es el horario?", null), CancellationToken.None);
+
+        Assert.Equal("test-deployment", response.ModelDeploymentName);
+    }
+
     private static AgentService CreateService(
         IBusinessContextService? businessContextService = null,
         FakeFoundryChatService? foundryChatService = null)
     {
-        var options = Options.Create(new AzureOpenAIOptions { DeploymentName = "test-deployment" });
+        var options = Options.Create(new FoundryOptions { ModelDeploymentName = "test-deployment" });
         return new AgentService(
             businessContextService ?? new FakeBusinessContextService("business-context"),
             foundryChatService ?? new FakeFoundryChatService(),
@@ -103,7 +113,7 @@ public sealed class AgentServiceTests
 
         public FoundryStatusResponse GetStatus()
         {
-            return new FoundryStatusResponse(true, true, true, "DefaultAzureCredential", "Foundry configuration is available.");
+            return new FoundryStatusResponse(true, true, true, "Azure AI Foundry", "DefaultAzureCredential", "Foundry configuration is available.");
         }
     }
 }

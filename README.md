@@ -1,6 +1,6 @@
 # SelfHostedAgent
 
-PoC funcional de un self-hosted agent en ASP.NET Core Minimal API sobre .NET 10. El agente atiende preguntas simples de soporte interno para Contoso Retail y consume Azure AI Foundry / Azure OpenAI con `DefaultAzureCredential`, sin API keys.
+PoC funcional de un self-hosted agent en ASP.NET Core Minimal API sobre .NET 10. El agente atiende preguntas simples de soporte interno para Contoso Retail y consume un model deployment mediante Azure AI Foundry Project Endpoint con `DefaultAzureCredential`, sin API keys.
 
 ## Alcance
 
@@ -11,8 +11,10 @@ DevOps se encarga de infraestructura, Dockerfile o imagen, ACR, AKS, Azure APIM,
 ## Arquitectura objetivo
 
 ```text
-Cliente -> Azure APIM -> AKS -> SelfHostedAgent.Api -> Azure AI Foundry / Azure OpenAI
+Cliente -> Azure APIM -> AKS -> SelfHostedAgent.Api -> Azure AI Foundry Project Endpoint -> model deployment
 ```
+
+El agente sigue siendo self-hosted. No se convierte en Foundry Hosted Agent.
 
 ## Comandos locales
 
@@ -29,12 +31,21 @@ Swagger queda disponible en `/swagger` cuando la API esta en ejecucion.
 ## Variables de entorno
 
 ```text
-AZURE_OPENAI_ENDPOINT
-AZURE_OPENAI_DEPLOYMENT_NAME
+FOUNDRY_PROJECT_ENDPOINT
+FOUNDRY_MODEL_DEPLOYMENT_NAME
 AZURE_CLIENT_ID opcional para Workload Identity en AKS
 ```
 
-`appsettings.json` contiene la seccion `AzureOpenAI`, pero no guarda secretos. Las variables de entorno tienen prioridad sobre la configuracion del archivo.
+`appsettings.json` contiene la seccion `Foundry`, pero no guarda secretos. Las variables de entorno tienen prioridad sobre la configuracion del archivo.
+
+```json
+{
+  "Foundry": {
+    "ProjectEndpoint": "",
+    "ModelDeploymentName": ""
+  }
+}
+```
 
 ## Ejemplos curl
 
@@ -54,6 +65,19 @@ Foundry status:
 
 ```bash
 curl http://localhost:5000/api/agent/foundry/status
+```
+
+Respuesta configurada:
+
+```json
+{
+  "configured": true,
+  "projectEndpointConfigured": true,
+  "modelDeploymentConfigured": true,
+  "provider": "Azure AI Foundry",
+  "authenticationMode": "DefaultAzureCredential",
+  "message": "Foundry configuration is available."
+}
 ```
 
 Invoke:
@@ -81,10 +105,8 @@ No se usan API keys, client secrets ni secretos en archivos de configuracion.
 
 ## Nota para DevOps
 
-- El proyecto no incluye Dockerfile.
-- El proyecto no incluye pipeline.
-- El proyecto no incluye manifiestos AKS.
-- El proyecto no incluye APIM policies.
-- El pipeline debe agregar esos artefactos.
-- El workload debe configurar Workload Identity.
-- La identidad debe tener permisos para consumir Azure OpenAI / Foundry, por ejemplo `Cognitive Services OpenAI User` sobre el recurso correspondiente.
+- Configurar Workload Identity para el workload en AKS.
+- Asignar RBAC a la identidad para consumir Azure AI Foundry y el model deployment requerido.
+- Configurar `FOUNDRY_PROJECT_ENDPOINT` y `FOUNDRY_MODEL_DEPLOYMENT_NAME` en el workload.
+- Publicar Swagger/OpenAPI en Azure APIM.
+- Mantener fuera de este repositorio Dockerfile, pipeline, manifiestos AKS, APIM policies e infraestructura como codigo.

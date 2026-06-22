@@ -7,4 +7,5 @@ public sealed record AgentMetadataResponse(
     string RuntimeTarget,
     string ExposedBy,
     string ModelProvider,
+    string ConnectionMode,
     string Authentication);

@@ -1,24 +1,28 @@
 using Azure;
-using Azure.AI.OpenAI;
+using Azure.AI.Extensions.OpenAI;
+using Azure.AI.Projects;
 using Azure.Identity;
 using Microsoft.Extensions.Options;
-using OpenAI.Chat;
+using OpenAI.Responses;
 using SelfHostedAgent.Api.Models;
 using SelfHostedAgent.Api.Options;
+
+#pragma warning disable OPENAI001
 
 namespace SelfHostedAgent.Api.Services;
 
 public sealed class FoundryChatService : IFoundryChatService
 {
     private const string AuthenticationMode = "DefaultAzureCredential";
+    private const string Provider = "Azure AI Foundry";
 
     private readonly IWebHostEnvironment _environment;
-    private readonly AzureOpenAIOptions _options;
+    private readonly FoundryOptions _options;
     private readonly ILogger<FoundryChatService> _logger;
 
     public FoundryChatService(
         IWebHostEnvironment environment,
-        IOptions<AzureOpenAIOptions> options,
+        IOptions<FoundryOptions> options,
         ILogger<FoundryChatService> logger)
     {
         _environment = environment;
@@ -28,17 +32,17 @@ public sealed class FoundryChatService : IFoundryChatService
 
     public async Task<string> SendAsync(string question, string businessContext, CancellationToken cancellationToken)
     {
-        var endpoint = AzureOpenAIOptions.ResolveEndpoint(_options);
-        var deploymentName = AzureOpenAIOptions.ResolveDeploymentName(_options);
+        var projectEndpoint = FoundryOptions.ResolveProjectEndpoint(_options);
+        var modelDeploymentName = FoundryOptions.ResolveModelDeploymentName(_options);
 
-        if (string.IsNullOrWhiteSpace(endpoint))
+        if (string.IsNullOrWhiteSpace(projectEndpoint))
         {
-            throw new InvalidOperationException("Missing AZURE_OPENAI_ENDPOINT or AzureOpenAI:Endpoint.");
+            throw new InvalidOperationException("Missing FOUNDRY_PROJECT_ENDPOINT or Foundry:ProjectEndpoint.");
         }
 
-        if (string.IsNullOrWhiteSpace(deploymentName))
+        if (string.IsNullOrWhiteSpace(modelDeploymentName))
         {
-            throw new InvalidOperationException("Missing AZURE_OPENAI_DEPLOYMENT_NAME or AzureOpenAI:DeploymentName.");
+            throw new InvalidOperationException("Missing FOUNDRY_MODEL_DEPLOYMENT_NAME or Foundry:ModelDeploymentName.");
         }
 
         try
@@ -47,20 +51,25 @@ public sealed class FoundryChatService : IFoundryChatService
             {
                 ManagedIdentityClientId = Environment.GetEnvironmentVariable("AZURE_CLIENT_ID")
             });
-            var client = new AzureOpenAIClient(new Uri(endpoint), credential);
-            var chatClient = client.GetChatClient(deploymentName);
 
-            var completion = await chatClient.CompleteChatAsync(
-                [
-                    new SystemChatMessage(await ReadSystemPromptAsync(cancellationToken)),
-                    new UserChatMessage($"Contexto de negocio:\n{businessContext}"),
-                    new UserChatMessage(question)
-                ],
-                cancellationToken: cancellationToken);
+            AIProjectClient projectClient = new(new Uri(projectEndpoint), credential);
+            var responsesClient = projectClient.ProjectOpenAIClient.GetProjectResponsesClientForModel(modelDeploymentName);
+            var response = await responsesClient.CreateResponseAsync(new CreateResponseOptions
+            {
+                Instructions = await ReadSystemPromptAsync(cancellationToken),
+                InputItems =
+                {
+                    ResponseItem.CreateUserMessageItem($"""
+                        Contexto de negocio:
+                        {businessContext}
 
-            return completion.Value.Content.Count > 0
-                ? completion.Value.Content[0].Text
-                : string.Empty;
+                        Pregunta del usuario:
+                        {question}
+                        """)
+                }
+            }, cancellationToken);
+
+            return response.Value.GetOutputText();
         }
         catch (AuthenticationFailedException ex)
         {
@@ -69,34 +78,35 @@ public sealed class FoundryChatService : IFoundryChatService
         }
         catch (RequestFailedException ex) when (ex.Status is 401 or 403)
         {
-            _logger.LogError(ex, "Azure OpenAI authorization failed.");
-            throw new InvalidOperationException("Azure OpenAI authorization failed. Verify RBAC: Cognitive Services OpenAI User on the target resource.", ex);
+            _logger.LogError(ex, "Azure AI Foundry authorization failed.");
+            throw new InvalidOperationException("Azure AI Foundry authorization failed. Verify RBAC for the identity on the Foundry project or related resource.", ex);
         }
         catch (RequestFailedException ex)
         {
-            _logger.LogError(ex, "Azure OpenAI request failed.");
-            throw new InvalidOperationException($"Azure OpenAI request failed with status {ex.Status}. Verify endpoint, deployment name and Azure AI Foundry / Azure OpenAI availability.", ex);
+            _logger.LogError(ex, "Azure AI Foundry request failed.");
+            throw new InvalidOperationException($"Azure AI Foundry request failed with status {ex.Status}. Verify project endpoint, model deployment name and Azure AI Foundry availability.", ex);
         }
         catch (UriFormatException ex)
         {
-            throw new InvalidOperationException("Azure OpenAI endpoint is not a valid URI.", ex);
+            throw new InvalidOperationException("Foundry Project Endpoint is not a valid URI.", ex);
         }
     }
 
     public FoundryStatusResponse GetStatus()
     {
-        var endpointConfigured = !string.IsNullOrWhiteSpace(AzureOpenAIOptions.ResolveEndpoint(_options));
-        var deploymentConfigured = !string.IsNullOrWhiteSpace(AzureOpenAIOptions.ResolveDeploymentName(_options));
-        var configured = endpointConfigured && deploymentConfigured;
+        var projectEndpointConfigured = !string.IsNullOrWhiteSpace(FoundryOptions.ResolveProjectEndpoint(_options));
+        var modelDeploymentConfigured = !string.IsNullOrWhiteSpace(FoundryOptions.ResolveModelDeploymentName(_options));
+        var configured = projectEndpointConfigured && modelDeploymentConfigured;
 
         var message = configured
             ? "Foundry configuration is available."
-            : BuildMissingConfigurationMessage(endpointConfigured, deploymentConfigured);
+            : BuildMissingConfigurationMessage(projectEndpointConfigured, modelDeploymentConfigured);
 
         return new FoundryStatusResponse(
             configured,
-            endpointConfigured,
-            deploymentConfigured,
+            projectEndpointConfigured,
+            modelDeploymentConfigured,
+            Provider,
             AuthenticationMode,
             message);
     }
@@ -125,12 +135,12 @@ public sealed class FoundryChatService : IFoundryChatService
     {
         if (!endpointConfigured)
         {
-            return "Missing AZURE_OPENAI_ENDPOINT.";
+            return "Missing FOUNDRY_PROJECT_ENDPOINT.";
         }
 
         if (!deploymentConfigured)
         {
-            return "Missing AZURE_OPENAI_DEPLOYMENT_NAME.";
+            return "Missing FOUNDRY_MODEL_DEPLOYMENT_NAME.";
         }
 
         return "Foundry configuration is not available.";

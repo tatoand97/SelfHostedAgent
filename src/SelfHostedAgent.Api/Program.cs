@@ -12,13 +12,13 @@ builder.Services.AddSwaggerGen(options =>
     {
         Title = "SelfHostedAgent API",
         Version = "1.0.0-poc",
-        Description = "Self-hosted support agent API for Azure AI Foundry / Azure OpenAI."
+        Description = "Self-hosted support agent API for Azure AI Foundry Project Endpoint."
     });
 });
 
 builder.Services.AddHealthChecks();
-builder.Services.Configure<AzureOpenAIOptions>(
-    builder.Configuration.GetSection(AzureOpenAIOptions.SectionName));
+builder.Services.Configure<FoundryOptions>(
+    builder.Configuration.GetSection(FoundryOptions.SectionName));
 builder.Services.AddSingleton<IAgentService, AgentService>();
 builder.Services.AddSingleton<IFoundryChatService, FoundryChatService>();
 builder.Services.AddSingleton<IBusinessContextService, BusinessContextService>();
@@ -41,7 +41,8 @@ agent.MapGet("/metadata", () => Results.Ok(new AgentMetadataResponse(
     "self-hosted",
     "AKS",
     "Azure APIM",
-    "Azure AI Foundry / Azure OpenAI",
+    "Azure AI Foundry",
+    "Foundry Project Endpoint",
     "DefaultAzureCredential / Workload Identity")))
 .WithName("GetAgentMetadata");
 
@@ -72,7 +73,7 @@ agent.MapPost("/invoke", async (
     catch (InvalidOperationException ex)
     {
         return Results.Problem(
-            title: "Azure OpenAI request failed",
+            title: "Azure AI Foundry request failed",
             detail: ex.Message,
             statusCode: StatusCodes.Status500InternalServerError);
     }
