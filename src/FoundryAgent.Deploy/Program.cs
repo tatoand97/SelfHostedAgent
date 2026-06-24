@@ -1,7 +1,7 @@
-using Azure;
 using Azure.AI.Projects;
 using Azure.AI.Projects.Agents;
 using Azure.Identity;
+using System.ClientModel;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 
@@ -38,9 +38,7 @@ string model = ResolveEnvironmentPlaceholder(manifest.Model, modelDeploymentName
 
 var credential = new DefaultAzureCredential();
 AIProjectClient projectClient = new(new Uri(projectEndpoint), credential);
-
-// The current Azure.AI.Projects.Agents SDK exposes declarative prompt agents through AgentAdministrationClient.
-AgentAdministrationClient agentsClient = new(new Uri(projectEndpoint), credential);
+AgentAdministrationClient agentsClient = projectClient.AgentAdministrationClient;
 DeclarativeAgentDefinition definition = new(model)
 {
     Instructions = instructions
@@ -51,12 +49,13 @@ Console.WriteLine($"display name: {manifest.DisplayName}");
 Console.WriteLine($"model deployment: {model}");
 Console.WriteLine($"Foundry project endpoint: {projectEndpoint}");
 
-bool agentExists = await AgentExistsAsync(agentsClient, manifest.Name);
-ProjectsAgentVersion deployed = await agentsClient.CreateAgentVersionAsync(
+ClientResult<ProjectsAgentVersion> result = await agentsClient.CreateAgentVersionAsync(
     agentName: manifest.Name,
     options: new ProjectsAgentVersionCreationOptions(definition));
 
-Console.WriteLine($"result: {(agentExists ? "updated" : "created")}");
+ProjectsAgentVersion deployed = result.Value;
+
+Console.WriteLine("agent version created");
 Console.WriteLine($"agent id: {deployed.Id}");
 Console.WriteLine($"agent version: {deployed.Version}");
 
@@ -69,19 +68,6 @@ static string RequiredEnvironmentVariable(string name)
     }
 
     return value ?? "";
-}
-
-static async Task<bool> AgentExistsAsync(AgentAdministrationClient agentsClient, string agentName)
-{
-    try
-    {
-        _ = await agentsClient.GetAgentAsync(agentName);
-        return true;
-    }
-    catch (RequestFailedException ex) when (ex.Status == 404)
-    {
-        return false;
-    }
 }
 
 static string ResolveEnvironmentPlaceholder(string value, string modelDeploymentName)

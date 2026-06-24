@@ -1,16 +1,16 @@
 # Foundry Agent Deploy
 
 ## Proposito
-Este repositorio crea un agente administrado en Microsoft Foundry desde Azure DevOps Pipeline.
+Este repositorio contiene una console app .NET minima para crear una version de un agente administrado en Microsoft Foundry a partir de un manifiesto YAML y un archivo de instrucciones Markdown.
 
 ## Flujo
-Git -> Azure DevOps Pipeline -> FoundryAgent.Deploy -> Microsoft Foundry Agent Service
+Manifest YAML + instructions.md -> FoundryAgent.Deploy -> Microsoft Foundry Agent Service
 
 ## Archivos principales
 - agents/support-agent/agent.yaml
 - agents/support-agent/instructions.md
 - src/FoundryAgent.Deploy
-- azure-pipelines.yml
+- SelfHostedAgent.slnx
 
 ## Variables requeridas
 - FOUNDRY_PROJECT_ENDPOINT
@@ -19,19 +19,18 @@ Git -> Azure DevOps Pipeline -> FoundryAgent.Deploy -> Microsoft Foundry Agent S
 ## Ejecucion local
 ```powershell
 az login
-dotnet restore
-dotnet build
+dotnet restore SelfHostedAgent.slnx
+dotnet build SelfHostedAgent.slnx
 dotnet run --project src/FoundryAgent.Deploy -- agents/support-agent/agent.yaml
 ```
 
-## Ejecucion desde pipeline
-El pipeline ejecuta la console app usando una Azure service connection con workload identity federation.
-
 ## Que no contiene
 - API self-hosted
+- endpoints HTTP
 - AKS
 - APIM
 - Docker
 - Terraform
 - Bicep
+- definicion de pipeline
 - validaciones complejas
