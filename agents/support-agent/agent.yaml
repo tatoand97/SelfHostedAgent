@@ -1,0 +1,5 @@
+name: support-agent
+displayName: Support Agent
+description: Agente de soporte interno.
+model: ${FOUNDRY_MODEL_DEPLOYMENT_NAME}
+instructionsFile: instructions.md

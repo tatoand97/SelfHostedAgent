@@ -1,0 +1,35 @@
+trigger:
+- main
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  buildConfiguration: Release
+  manifestPath: agents/support-agent/agent.yaml
+
+steps:
+- checkout: self
+
+- task: UseDotNet@2
+  inputs:
+    packageType: sdk
+    version: '10.x'
+
+- script: dotnet restore
+  displayName: Restore
+
+- script: dotnet build --configuration $(buildConfiguration) --no-restore
+  displayName: Build
+
+- task: DotNetCoreCLI@2
+  displayName: Deploy Foundry Agent
+  inputs:
+    command: run
+    projects: src/FoundryAgent.Deploy/FoundryAgent.Deploy.csproj
+    arguments: -- $(manifestPath)
+    connectedServiceName: '<NOMBRE_SERVICE_CONNECTION_AZURE>'
+  env:
+    SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+    FOUNDRY_PROJECT_ENDPOINT: $(FOUNDRY_PROJECT_ENDPOINT)
+    FOUNDRY_MODEL_DEPLOYMENT_NAME: $(FOUNDRY_MODEL_DEPLOYMENT_NAME)
