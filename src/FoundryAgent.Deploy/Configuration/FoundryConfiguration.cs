@@ -6,14 +6,17 @@ public static class FoundryConfiguration
     public const string ModelDeploymentName = "REPLACE_WITH_MODEL_DEPLOYMENT_NAME";
 
     public static void Validate()
+        => Validate(ProjectEndpoint, ModelDeploymentName);
+
+    public static void Validate(string projectEndpoint, string modelDeploymentName)
     {
-        if (string.IsNullOrWhiteSpace(ProjectEndpoint)
-            || ProjectEndpoint.StartsWith("REPLACE_WITH_", StringComparison.Ordinal))
+        if (string.IsNullOrWhiteSpace(projectEndpoint)
+            || projectEndpoint.StartsWith("REPLACE_WITH_", StringComparison.Ordinal))
         {
             throw new InvalidOperationException("Set ProjectEndpoint in FoundryConfiguration.cs before deployment.");
         }
 
-        if (!Uri.TryCreate(ProjectEndpoint, UriKind.Absolute, out var endpoint)
+        if (!Uri.TryCreate(projectEndpoint, UriKind.Absolute, out var endpoint)
             || endpoint.Scheme != Uri.UriSchemeHttps
             || string.IsNullOrEmpty(endpoint.Host)
             || !string.IsNullOrEmpty(endpoint.UserInfo))
@@ -21,7 +24,7 @@ public static class FoundryConfiguration
             throw new InvalidOperationException("ProjectEndpoint must be an absolute HTTPS project URL without credentials.");
         }
 
-        ValidateModelDeployment(ModelDeploymentName);
+        ValidateModelDeployment(modelDeploymentName);
     }
 
     internal static void ValidateModelDeployment(string model)

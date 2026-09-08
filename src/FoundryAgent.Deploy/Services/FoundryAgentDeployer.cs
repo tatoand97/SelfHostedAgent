@@ -1,6 +1,3 @@
-using Azure.AI.Projects;
-using Azure.AI.Projects.Agents;
-using Azure.Identity;
 using FoundryAgent.Deploy.Agents;
 using FoundryAgent.Deploy.Configuration;
 
@@ -8,7 +5,18 @@ namespace FoundryAgent.Deploy.Services;
 
 public sealed class FoundryAgentDeployer
 {
-    public async Task<IReadOnlyList<ProjectsAgentVersion>> DeployAsync(
+    private readonly IAgentVersionCreator? agentVersionCreator;
+    private readonly string globalModelDeploymentName;
+
+    public FoundryAgentDeployer(
+        IAgentVersionCreator? agentVersionCreator = null,
+        string? globalModelDeploymentName = null)
+    {
+        this.agentVersionCreator = agentVersionCreator;
+        this.globalModelDeploymentName = globalModelDeploymentName ?? FoundryConfiguration.ModelDeploymentName;
+    }
+
+    public async Task<IReadOnlyList<AgentVersion>> DeployAsync(
         IReadOnlyList<AgentSpecification> agents)
     {
         ArgumentNullException.ThrowIfNull(agents);
@@ -22,33 +30,24 @@ public sealed class FoundryAgentDeployer
         foreach (var agent in agents)
         {
             ArgumentNullException.ThrowIfNull(agent);
-            agent.Validate();
+            agent.Validate(globalModelDeploymentName);
             if (!names.Add(agent.Name))
             {
                 throw new InvalidOperationException($"Duplicate agent name in AgentCatalog: {agent.Name}");
             }
         }
 
-        AIProjectClient projectClient = new(
-            new Uri(FoundryConfiguration.ProjectEndpoint),
-            new DefaultAzureCredential());
-        AgentAdministrationClient agentsClient = projectClient.AgentAdministrationClient;
-        List<ProjectsAgentVersion> versions = [];
+        IAgentVersionCreator creator = agentVersionCreator ?? new AzureAgentVersionCreator();
+        List<AgentVersion> versions = [];
 
         foreach (var agent in agents)
         {
-            string model = agent.ModelDeploymentName ?? FoundryConfiguration.ModelDeploymentName;
+            string model = agent.ModelDeploymentName ?? globalModelDeploymentName;
             Console.WriteLine($"Creating Foundry agent: {agent.Name}");
             Console.WriteLine($"Model deployment: {model}");
 
-            DeclarativeAgentDefinition definition = new(model)
-            {
-                Instructions = agent.Instructions
-            };
-
-            ProjectsAgentVersion created = await agentsClient.CreateAgentVersionAsync(
-                agentName: agent.Name,
-                options: new ProjectsAgentVersionCreationOptions(definition));
+            AgentVersion created = await creator.CreateAsync(
+                new AgentVersionCreationRequest(agent.Name, agent.Instructions, model));
             versions.Add(created);
 
             Console.WriteLine("Agent created successfully");

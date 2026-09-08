@@ -1,3 +1,4 @@
 <Solution>
   <Project Path="src/FoundryAgent.Deploy/FoundryAgent.Deploy.csproj" />
+  <Project Path="tests/FoundryAgent.Deploy.UnitTests/FoundryAgent.Deploy.UnitTests.csproj" />
 </Solution>

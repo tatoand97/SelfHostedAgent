@@ -7,7 +7,7 @@ public sealed record AgentSpecification(
     string Instructions,
     string? ModelDeploymentName = null)
 {
-    public void Validate()
+    public void Validate(string? globalModelDeploymentName = null)
     {
         if (string.IsNullOrWhiteSpace(Name))
         {
@@ -26,6 +26,6 @@ public sealed record AgentSpecification(
             throw new InvalidOperationException($"Agent '{Name}' must have non-empty Instructions in AgentCatalog.cs.");
         }
 
-        FoundryConfiguration.ValidateModelDeployment(ModelDeploymentName ?? FoundryConfiguration.ModelDeploymentName);
+        FoundryConfiguration.ValidateModelDeployment(ModelDeploymentName ?? globalModelDeploymentName ?? FoundryConfiguration.ModelDeploymentName);
     }
 }

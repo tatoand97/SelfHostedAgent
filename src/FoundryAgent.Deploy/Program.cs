@@ -7,10 +7,10 @@ try
     FoundryConfiguration.Validate();
     var agents = AgentCatalog.All;
     var versions = await new FoundryAgentDeployer().DeployAsync(agents);
-    string agentIds = string.Join(",", versions.Select(agent => $"{agent.Name}:{agent.Version}"));
+    string agentIds = AgentIdsFormatter.Format(versions);
 
     Console.WriteLine($"Agents created for evaluation: {agentIds}");
-    Console.WriteLine($"##vso[task.setvariable variable=AgentIds]{agentIds}");
+    Console.WriteLine(AgentIdsFormatter.SetVariableCommand(agentIds));
     return 0;
 }
 catch (Exception exception)
