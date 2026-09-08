@@ -7,7 +7,14 @@ public sealed class AgentSpecificationTests
     [Fact]
     public void Validate_WhenSpecificationIsValid_DoesNotThrow()
     {
-        new AgentSpecification("support-agent", "Provide support.").Validate("gpt-4o");
+        // Arrange
+        var agent = new AgentSpecification("support-agent", "Provide support.");
+
+        // Act
+        var exception = Record.Exception(() => agent.Validate("global-model"));
+
+        // Assert
+        Assert.Null(exception);
     }
 
     [Theory]
@@ -16,9 +23,13 @@ public sealed class AgentSpecificationTests
     [InlineData("   ")]
     public void Validate_WhenNameIsEmpty_ThrowsInvalidOperationException(string? name)
     {
-        var exception = Assert.Throws<InvalidOperationException>(() =>
-            new AgentSpecification(name!, "Provide support.").Validate());
+        // Arrange
+        var agent = new AgentSpecification(name!, "Provide support.");
 
+        // Act
+        var exception = Assert.Throws<InvalidOperationException>(() => agent.Validate("global-model"));
+
+        // Assert
         Assert.Contains("Name", exception.Message);
     }
 
@@ -28,11 +39,18 @@ public sealed class AgentSpecificationTests
     [InlineData("support,agent")]
     [InlineData("support%agent")]
     [InlineData("support\u0001agent")]
+    [InlineData("support\nagent")]
+    [InlineData("support\ragent")]
+    [InlineData("support\tagent")]
     public void Validate_WhenNameContainsForbiddenCharacter_ThrowsInvalidOperationException(string name)
     {
-        var exception = Assert.Throws<InvalidOperationException>(() =>
-            new AgentSpecification(name, "Provide support.").Validate());
+        // Arrange
+        var agent = new AgentSpecification(name, "Provide support.");
 
+        // Act
+        var exception = Assert.Throws<InvalidOperationException>(() => agent.Validate("global-model"));
+
+        // Assert
         Assert.Contains("cannot contain", exception.Message);
     }
 
@@ -42,30 +60,71 @@ public sealed class AgentSpecificationTests
     [InlineData("   ")]
     public void Validate_WhenInstructionsAreEmpty_ThrowsInvalidOperationException(string? instructions)
     {
-        var exception = Assert.Throws<InvalidOperationException>(() =>
-            new AgentSpecification("support-agent", instructions!).Validate());
+        // Arrange
+        var agent = new AgentSpecification("support-agent", instructions!);
 
+        // Act
+        var exception = Assert.Throws<InvalidOperationException>(() => agent.Validate("global-model"));
+
+        // Assert
         Assert.Contains("Instructions", exception.Message);
     }
 
     [Fact]
-    public void Validate_WhenModelDeploymentIsSpecificAndValid_DoesNotThrow()
+    public void Validate_WhenModelDeploymentIsSpecificAndValid_IgnoresInvalidGlobalModel()
     {
-        new AgentSpecification("support-agent", "Provide support.", "gpt-4o-mini").Validate();
+        // Arrange
+        var agent = new AgentSpecification("support-agent", "Provide support.", "specific-model");
+
+        // Act
+        var exception = Record.Exception(() => agent.Validate(""));
+
+        // Assert
+        Assert.Null(exception);
     }
 
     [Fact]
-    public void Validate_WhenModelDeploymentIsNull_UsesGlobalModelAndDoesNotThrow()
+    public void Validate_WhenModelDeploymentIsNull_UsesGlobalModel()
     {
-        new AgentSpecification("support-agent", "Provide support.", null).Validate("gpt-4o");
+        // Arrange
+        var agent = new AgentSpecification("support-agent", "Provide support.", null);
+
+        // Act
+        var exception = Record.Exception(() => agent.Validate("global-model"));
+
+        // Assert
+        Assert.Null(exception);
     }
 
-    [Fact]
-    public void Validate_WhenModelDeploymentIsPlaceholder_ThrowsInvalidOperationException()
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("REPLACE_WITH_MODEL")]
+    public void Validate_WhenSpecificModelIsInvalid_ThrowsInsteadOfFallingBack(string model)
     {
-        var exception = Assert.Throws<InvalidOperationException>(() =>
-            new AgentSpecification("support-agent", "Provide support.", "REPLACE_WITH_MODEL").Validate());
+        // Arrange
+        var agent = new AgentSpecification("support-agent", "Provide support.", model);
 
+        // Act
+        var exception = Assert.Throws<InvalidOperationException>(() => agent.Validate("valid-global-model"));
+
+        // Assert
+        Assert.Contains("model deployment", exception.Message);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("REPLACE_WITH_MODEL")]
+    public void Validate_WhenFallbackModelIsInvalid_ThrowsInvalidOperationException(string model)
+    {
+        // Arrange
+        var agent = new AgentSpecification("support-agent", "Provide support.");
+
+        // Act
+        var exception = Assert.Throws<InvalidOperationException>(() => agent.Validate(model));
+
+        // Assert
         Assert.Contains("model deployment", exception.Message);
     }
 }

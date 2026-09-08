@@ -6,7 +6,7 @@ namespace FoundryAgent.Deploy.Services;
 public sealed class FoundryAgentDeployer
 {
     private readonly IAgentVersionCreator? agentVersionCreator;
-    private readonly string globalModelDeploymentName;
+    private readonly string? globalModelDeploymentName;
 
     public FoundryAgentDeployer(
         IAgentVersionCreator? agentVersionCreator = null,
@@ -42,7 +42,7 @@ public sealed class FoundryAgentDeployer
 
         foreach (var agent in agents)
         {
-            string model = agent.ModelDeploymentName ?? globalModelDeploymentName;
+            string model = (agent.ModelDeploymentName ?? globalModelDeploymentName)!; // Validated above.
             Console.WriteLine($"Creating Foundry agent: {agent.Name}");
             Console.WriteLine($"Model deployment: {model}");
 

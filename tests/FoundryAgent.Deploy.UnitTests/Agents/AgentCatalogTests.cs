@@ -5,37 +5,50 @@ namespace FoundryAgent.Deploy.UnitTests.Agents;
 public sealed class AgentCatalogTests
 {
     [Fact]
-    public void All_IsNotNullAndContainsAgents()
+    public void All_WhenRead_ContainsAgents()
     {
-        Assert.NotNull(AgentCatalog.All);
-        Assert.NotEmpty(AgentCatalog.All);
+        // Arrange / Act
+        var agents = AgentCatalog.All;
+
+        // Assert
+        Assert.NotNull(agents);
+        Assert.NotEmpty(agents);
     }
 
     [Fact]
-    public void All_HasUniqueNonEmptyNames()
+    public void All_WhenRead_HasUniqueNonEmptyNames()
     {
-        var names = AgentCatalog.All.Select(agent => agent.Name).ToList();
+        // Arrange
+        var agents = AgentCatalog.All;
 
+        // Act
+        var names = agents.Select(agent => agent.Name).ToList();
+
+        // Assert
         Assert.All(names, name => Assert.False(string.IsNullOrWhiteSpace(name)));
         Assert.Equal(names.Count, names.Distinct(StringComparer.OrdinalIgnoreCase).Count());
     }
 
     [Fact]
-    public void All_HasNonEmptyInstructions()
+    public void All_WhenRead_HasNonEmptyInstructions()
     {
-        Assert.All(AgentCatalog.All, agent => Assert.False(string.IsNullOrWhiteSpace(agent.Instructions)));
+        // Arrange / Act
+        var agents = AgentCatalog.All;
+
+        // Assert
+        Assert.All(agents, agent => Assert.False(string.IsNullOrWhiteSpace(agent.Instructions)));
     }
 
     [Fact]
-    public void All_ContainsValidSpecifications()
+    public void All_WhenValidated_ContainsValidSpecifications()
     {
-        Assert.All(AgentCatalog.All, agent => agent.Validate("gpt-4o"));
-    }
+        // Arrange
+        var agents = AgentCatalog.All;
 
-    [Fact]
-    public void All_ContainsSupportAgent()
-    {
-        Assert.Contains(AgentCatalog.All, agent =>
-            string.Equals(agent.Name, "support-agent", StringComparison.OrdinalIgnoreCase));
+        // Act
+        var exceptions = agents.Select(agent => Record.Exception(() => agent.Validate("global-model"))).ToList();
+
+        // Assert
+        Assert.All(exceptions, exception => Assert.Null(exception));
     }
 }

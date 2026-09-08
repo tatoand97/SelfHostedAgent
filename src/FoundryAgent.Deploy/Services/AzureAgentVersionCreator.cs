@@ -11,8 +11,9 @@ internal sealed class AzureAgentVersionCreator : IAgentVersionCreator
 
     public AzureAgentVersionCreator()
     {
+        FoundryConfiguration.Validate();
         AIProjectClient projectClient = new(
-            new Uri(FoundryConfiguration.ProjectEndpoint),
+            new Uri(FoundryConfiguration.ProjectEndpoint!),
             new DefaultAzureCredential());
         agentsClient = projectClient.AgentAdministrationClient;
     }

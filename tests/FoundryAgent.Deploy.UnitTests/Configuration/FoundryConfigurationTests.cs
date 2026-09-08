@@ -1,13 +1,45 @@
+using FoundryAgent.Deploy.Agents;
+using FoundryAgent.Deploy.Services;
+using Moq;
 using FoundryAgent.Deploy.Configuration;
 
 namespace FoundryAgent.Deploy.UnitTests.Configuration;
 
-public sealed class FoundryConfigurationTests
+// Environment variables are process-wide. No other collection may run alongside this one.
+[CollectionDefinition("Environment configuration", DisableParallelization = true)]
+public sealed class EnvironmentConfigurationCollection;
+
+[Collection("Environment configuration")]
+public sealed class FoundryConfigurationTests : IDisposable
 {
-    [Fact]
-    public void Validate_WhenEndpointAndModelAreValid_DoesNotThrow()
+    private const string ValidEndpoint = "https://project.services.ai.azure.com/api/projects/demo";
+    private readonly string? originalEndpoint = Environment.GetEnvironmentVariable("AzureAIProjectEndpoint");
+    private readonly string? originalModel = Environment.GetEnvironmentVariable("DeploymentName");
+
+    public FoundryConfigurationTests()
     {
-        FoundryConfiguration.Validate("https://project.services.ai.azure.com/api/projects/demo", "gpt-4o");
+        Environment.SetEnvironmentVariable("AzureAIProjectEndpoint", ValidEndpoint);
+        Environment.SetEnvironmentVariable("DeploymentName", "global-model");
+    }
+
+    public void Dispose()
+    {
+        Environment.SetEnvironmentVariable("AzureAIProjectEndpoint", originalEndpoint);
+        Environment.SetEnvironmentVariable("DeploymentName", originalModel);
+    }
+
+    [Fact]
+    public void Validate_WhenEnvironmentIsValid_UsesEndpointAndDeploymentName()
+    {
+        // Arrange: known values are set for each test, regardless of the host environment.
+
+        // Act
+        var exception = Record.Exception(FoundryConfiguration.Validate);
+
+        // Assert
+        Assert.Null(exception);
+        Assert.Equal(ValidEndpoint, FoundryConfiguration.ProjectEndpoint);
+        Assert.Equal("global-model", FoundryConfiguration.ModelDeploymentName);
     }
 
     [Theory]
@@ -16,32 +48,81 @@ public sealed class FoundryConfigurationTests
     [InlineData("   ")]
     [InlineData("not a uri")]
     [InlineData("http://project.services.ai.azure.com/api/projects/demo")]
-    public void Validate_WhenEndpointIsInvalid_ThrowsInvalidOperationException(string? endpoint)
+    [InlineData("REPLACE_WITH_PROJECT_ENDPOINT")]
+    [InlineData("https://user:password@project.services.ai.azure.com")]
+    public void Validate_WhenAzureAIProjectEndpointIsInvalid_ThrowsInvalidOperationException(string? endpoint)
     {
-        var exception = Assert.Throws<InvalidOperationException>(() =>
-            FoundryConfiguration.Validate(endpoint!, "gpt-4o"));
+        // Arrange
+        Environment.SetEnvironmentVariable("AzureAIProjectEndpoint", endpoint);
 
-        Assert.Contains("ProjectEndpoint", exception.Message);
+        // Act
+        var exception = Assert.Throws<InvalidOperationException>(FoundryConfiguration.Validate);
+
+        // Assert
+        Assert.Contains("AzureAIProjectEndpoint", exception.Message);
     }
 
     [Theory]
     [InlineData(null)]
     [InlineData("")]
     [InlineData("   ")]
-    public void Validate_WhenModelIsMissing_ThrowsInvalidOperationException(string? model)
+    [InlineData("REPLACE_WITH_MODEL")]
+    public void Validate_WhenDeploymentNameIsInvalid_ThrowsInvalidOperationException(string? model)
     {
-        var exception = Assert.Throws<InvalidOperationException>(() =>
-            FoundryConfiguration.Validate("https://project.services.ai.azure.com", model!));
+        // Arrange
+        Environment.SetEnvironmentVariable("DeploymentName", model);
 
-        Assert.Contains("model deployment", exception.Message);
+        // Act
+        var exception = Assert.Throws<InvalidOperationException>(FoundryConfiguration.Validate);
+
+        // Assert
+        Assert.Contains("DeploymentName", exception.Message);
     }
 
     [Fact]
-    public void Validate_WhenEndpointContainsCredentials_ThrowsInvalidOperationException()
+    public void Validate_WhenExplicitValuesAreValid_DoesNotReadInvalidEnvironment()
     {
-        var exception = Assert.Throws<InvalidOperationException>(() =>
-            FoundryConfiguration.Validate("https://user:secret@project.services.ai.azure.com", "gpt-4o"));
+        // Arrange
+        Environment.SetEnvironmentVariable("AzureAIProjectEndpoint", null);
+        Environment.SetEnvironmentVariable("DeploymentName", null);
 
-        Assert.Contains("without credentials", exception.Message);
+        // Act
+        var exception = Record.Exception(() => FoundryConfiguration.Validate(ValidEndpoint, "explicit-model"));
+
+        // Assert
+        Assert.Null(exception);
+    }
+
+    [Fact]
+    public void Validate_WhenAgentModelIsNull_FallsBackToEnvironmentDeploymentName()
+    {
+        // Arrange
+        var agent = new AgentSpecification("support-agent", "Instructions");
+
+        // Act
+        var exception = Record.Exception(() => agent.Validate());
+
+        // Assert
+        Assert.Null(exception);
+    }
+
+    [Fact]
+    public async Task DeployAsync_WhenNoGlobalModelIsPassed_UsesEnvironmentDeploymentName()
+    {
+        // Arrange
+        var creator = new Mock<IAgentVersionCreator>(MockBehavior.Strict);
+        var request = new AgentVersionCreationRequest(
+            "support-agent", "Instructions", "global-model");
+        creator.Setup(value => value.CreateAsync(request, default))
+            .ReturnsAsync(new AgentVersion("support-agent", "3", "opaque-id"));
+        var deployer = new FoundryAgentDeployer(creator.Object);
+
+        // Act
+        var versions = await deployer.DeployAsync([new("support-agent", "Instructions")]);
+
+        // Assert
+        Assert.Single(versions);
+        creator.Verify(value => value.CreateAsync(request, default), Times.Once);
+        creator.VerifyNoOtherCalls();
     }
 }

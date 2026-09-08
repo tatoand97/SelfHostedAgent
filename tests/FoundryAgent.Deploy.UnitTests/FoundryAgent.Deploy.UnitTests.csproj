@@ -6,15 +6,30 @@
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
+    <!-- Measure our unit-testable logic. Program composes real credentials;
+         AzureAgentVersionCreator is the SDK boundary replaced by Moq in tests. -->
+    <ExcludeByFile>$(ExcludeByFile),**/Program.cs,**/AzureAgentVersionCreator.cs</ExcludeByFile>
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\FoundryAgent.Deploy\FoundryAgent.Deploy.csproj" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.3.0" />
+    <PackageReference Include="coverlet.msbuild" Version="10.0.1">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.9.0" />
+    <!-- Test.Sdk requires this package transitively. Disable all its assets;
+         coverlet.msbuild is the only coverage implementation used here. -->
+    <PackageReference Include="Microsoft.CodeCoverage" Version="18.9.0" ExcludeAssets="all" PrivateAssets="all" />
     <PackageReference Include="Moq" Version="4.20.72" />
-    <PackageReference Include="coverlet.msbuild" Version="6.0.4" />
-    <PackageReference Include="xunit.v3" Version="3.2.1" />
-    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+    <PackageReference Include="xunit.v3.mtp-off" Version="4.0.0" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="4.0.0">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/FoundryAgent.Deploy/FoundryAgent.Deploy.csproj" />
   </ItemGroup>
 
 </Project>
